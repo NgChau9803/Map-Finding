@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Navigation — Giảng Võ, Hà Nội</title>
+    <meta name="description" content="AI-powered navigation system for Giảng Võ ward using BFS, DFS, Dijkstra, Greedy, and A* algorithms.">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="header">
+            <div class="logo">🗺️</div>
+            <div class="header-text">
+                <h1>Smart Navigation</h1>
+                <p>Giảng Võ · Hà Nội</p>
+            </div>
+        </div>
+        
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-route" data-tab="route">Route</button>
+            <button class="tab-btn" id="tab-events" data-tab="events">Events</button>
+        </div>
+
+        <!-- ROUTE TAB -->
+        <div class="tab-content active" id="panel-route">
+            <div class="control-panel">
+                <div class="input-group">
+                    <label>🟢 Point A — Start</label>
+                    <div class="search-wrapper">
+                        <input type="text" id="start-search" class="search-input" placeholder="Search a place or click map..." autocomplete="off" />
+                    </div>
+                    <div class="point-selector" id="start-point-display">Click on map to set start</div>
+                </div>
+                
+                <div class="input-group">
+                    <label>🔴 Point B — End</label>
+                    <div class="search-wrapper">
+                        <input type="text" id="end-search" class="search-input" placeholder="Search a place or click map..." autocomplete="off" />
+                    </div>
+                    <div class="point-selector" id="end-point-display">Click on map to set end</div>
+                </div>
+
+                <div class="input-group">
+                    <label>⚙️ Algorithm</label>
+                    <select id="algorithm-select">
+                        <option value="astar">A* — Optimal + Fast</option>
+                        <option value="dijkstra">Dijkstra — Uniform Cost</option>
+                        <option value="greedy">Greedy Best-First</option>
+                        <option value="bfs">BFS — Breadth First</option>
+                        <option value="dfs">DFS — Depth First</option>
+                    </select>
+                </div>
+                
+                <div class="button-group">
+                    <button id="find-path-btn" class="action-btn" disabled>Find Path</button>
+                    <button id="clear-btn" class="secondary-btn">Clear</button>
+                </div>
+            </div>
+
+            <div id="results-panel" class="results-panel hidden">
+                <h3>Results</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-icon">⏱️</span>
+                        <span class="metric-value" id="metric-time">-</span>
+                        <span class="metric-label">Time (ms)</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-icon">📏</span>
+                        <span class="metric-value" id="metric-distance">-</span>
+                        <span class="metric-label">Distance (m)</span>
+                    </div>
+                    <div class="metric-card full-width">
+                        <span class="metric-icon">🔢</span>
+                        <span class="metric-value" id="metric-nodes">-</span>
+                        <span class="metric-label">Nodes Explored</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVENTS TAB -->
+        <div class="tab-content hidden" id="panel-events">
+            <div class="control-panel">
+                <p class="help-text">Click on the map to place a traffic event at the nearest road segment.</p>
+                
+                <div class="input-group">
+                    <label>🚨 Event Type</label>
+                    <select id="event-type-select">
+                        <option value="accident" data-factor="0">🚨 Accident (Blocked)</option>
+                        <option value="maintenance" data-factor="0">🚧 Maintenance (Blocked)</option>
+                        <option value="traffic" data-factor="0.3">🚗 Traffic Jam (−70% speed)</option>
+                        <option value="vip" data-factor="0">🚔 VIP Escort (Blocked)</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>⏳ Duration (minutes)</label>
+                    <input type="number" id="event-duration" value="60" min="1" max="1440" />
+                </div>
+
+                <button id="add-event-btn" class="action-btn">Click Map to Add Event</button>
+                <button id="clear-events-btn" class="secondary-btn">Clear All Events</button>
+            </div>
+
+            <div id="events-list" class="events-list">
+                <h3>Active Events</h3>
+                <div id="events-container"><p class="empty-state">No active events</p></div>
+            </div>
+        </div>
+
+        <!-- Loading overlay for sidebar -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Computing...</p>
+        </div>
+    </aside>
+
+    <!-- MAP -->
+    <main id="map-container">
+        <div id="map"></div>
+        <div id="map-hint" class="map-hint">Click to set <strong>Start (A)</strong></div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+    <script src="app.js"></script>
+</body>
+</html>
