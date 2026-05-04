@@ -33,6 +33,7 @@
                     <label>🟢 Point A — Start</label>
                     <div class="search-wrapper">
                         <input type="text" id="start-search" class="search-input" placeholder="Search a place or click map..." autocomplete="off" />
+                        <div class="search-results hidden" id="start-results"></div>
                     </div>
                     <div class="point-selector" id="start-point-display">Click on map to set start</div>
                 </div>
@@ -41,6 +42,7 @@
                     <label>🔴 Point B — End</label>
                     <div class="search-wrapper">
                         <input type="text" id="end-search" class="search-input" placeholder="Search a place or click map..." autocomplete="off" />
+                        <div class="search-results hidden" id="end-results"></div>
                     </div>
                     <div class="point-selector" id="end-point-display">Click on map to set end</div>
                 </div>
@@ -128,7 +130,7 @@
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+    <!-- <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script> -->
     <script src="app.js"></script>
 </body>
 </html>

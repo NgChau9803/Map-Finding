@@ -193,9 +193,16 @@ function bindUI() {
     document.getElementById('find-path-btn').addEventListener('click', findPath);
     document.getElementById('clear-btn').addEventListener('click', clearRoute);
 
-    // Search inputs (Google Places API)
-    initGooglePlacesSearch('start-search', 'start');
-    initGooglePlacesSearch('end-search', 'end');
+    // Search inputs (Nominatim - Free open-source search)
+    initSearch('start-search', 'start-results', 'start');
+    initSearch('end-search', 'end-results', 'end');
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrapper')) {
+            document.querySelectorAll('.search-results').forEach(el => el.classList.add('hidden'));
+        }
+    });
 
     // Event controls
     document.getElementById('add-event-btn').addEventListener('click', () => {
@@ -204,54 +211,92 @@ function bindUI() {
     document.getElementById('clear-events-btn').addEventListener('click', clearAllEvents);
 }
 
-// ─── Google Places Search ─────────────────────────────────────
-function initGooglePlacesSearch(inputId, role) {
+// ─── Nominatim Search ─────────────────────────────────────────
+let _searchTimers = {};
+
+function initSearch(inputId, resultsId, role) {
     const input = document.getElementById(inputId);
-    
-    // Default bounds to Hanoi area to bias results
-    const hanoiBounds = new google.maps.LatLngBounds(
-        new google.maps.LatLng(21.000, 105.800),
-        new google.maps.LatLng(21.050, 105.870)
-    );
+    const resultsEl = document.getElementById(resultsId);
 
-    const autocomplete = new google.maps.places.Autocomplete(input, {
-        bounds: hanoiBounds,
-        componentRestrictions: { country: "vn" },
-        fields: ["geometry", "name", "formatted_address"],
-        strictBounds: false
-    });
-
-    autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-
-        if (!place.geometry || !place.geometry.location) {
-            alert("No location details available for this place.");
+    input.addEventListener('input', () => {
+        const q = input.value.trim();
+        if (q.length < 2) {
+            resultsEl.classList.add('hidden');
             return;
         }
+        // Debounce: wait 400ms after user stops typing
+        clearTimeout(_searchTimers[role]);
+        _searchTimers[role] = setTimeout(() => nominatimSearch(q, resultsEl, role), 400);
+    });
 
-        const lat = place.geometry.location.lat();
-        const lon = place.geometry.location.lng();
-        const displayName = place.name;
-        
-        selectSearchResult(lat, lon, displayName, role);
+    input.addEventListener('focus', () => {
+        if (resultsEl.childElementCount > 0) resultsEl.classList.remove('hidden');
     });
 }
 
+async function nominatimSearch(query, resultsEl, role) {
+    resultsEl.innerHTML = '<div class="search-loading">Searching...</div>';
+    resultsEl.classList.remove('hidden');
+
+    try {
+        // Match exactly the Giảng Võ bbox from graph_builder.py
+        const url = `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query)}` +
+            `&format=json&limit=6&addressdetails=1` +
+            `&viewbox=105.812,21.034,105.830,21.020&bounded=1` +
+            `&countrycodes=vn`;
+
+        const res = await fetch(url, { headers: { 'Accept-Language': 'vi,en' } });
+        const results = await res.json();
+
+        if (results.length === 0) {
+            resultsEl.innerHTML = '<div class="search-loading">No results found</div>';
+            return;
+        }
+
+        resultsEl.innerHTML = '';
+        results.forEach(r => {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            const name = r.display_name.split(',')[0];
+            const addr = r.display_name.split(',').slice(1, 4).join(',').trim();
+
+            item.innerHTML = `<span class="result-name">${name}</span><span class="result-addr">${addr}</span>`;
+
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent input from losing focus immediately
+                const lat = parseFloat(r.lat);
+                const lon = parseFloat(r.lon);
+                selectSearchResult(lat, lon, r.display_name, role);
+                resultsEl.classList.add('hidden');
+                document.getElementById(`${role}-search`).value = name;
+            });
+            resultsEl.appendChild(item);
+        });
+    } catch (e) {
+        resultsEl.innerHTML = '<div class="search-loading">Search failed</div>';
+        console.error('Nominatim error:', e);
+    }
+}
+
 function selectSearchResult(lat, lon, displayName, role) {
-    // Snap to nearest road node in our graph
     const node = closestNode(lat, lon);
     if (!node) {
-        alert('No road node found near this location. Try a different place.');
+        alert('No road node found near this location.');
         return;
     }
 
-    // Pan map to the selected location
+    // Check if the snapped node is too far (meaning the place is likely outside our graph)
+    const dist = haversine(lat, lon, node.lat, node.lon);
+    if (dist > 500) {
+        alert('Warning: This location is outside the Giảng Võ map area. Please select a place closer to the map.');
+        return;
+    }
     map.setView([lat, lon], 17);
-
     if (role === 'start') {
         placeStart(node);
         selectionMode = 'end';
-        setHint('Now set <strong>End (B)</strong> — search or click map');
+        setHint('Now set <strong>End (B)</strong>');
     } else {
         placeEnd(node);
         selectionMode = 'start';
@@ -459,4 +504,16 @@ async function clearAllEvents() {
 // ─── Helpers ──────────────────────────────────────────────────
 function showLoading(show) {
     document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+}
+
+// ─── Utilities ────────────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
